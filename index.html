@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Flappy Banjhade</title>
+<style>
+  :root{
+    --sky-top:#7EC8E3;
+    --sky-bottom:#CDEAF0;
+    --peak-far:#B7C9D6;
+    --peak-near:#8FA6B3;
+    --ground-top:#C9A876;
+    --ground-bottom:#A9824F;
+    --bamboo:#4E9A51;
+    --bamboo-dark:#397A3C;
+    --bamboo-ring:#2E5F30;
+    --ink:#2B2320;
+    --paper:#FBF3E3;
+    --accent:#E0632B;
+    --accent-dark:#B84B1D;
+    --shadow:rgba(43,35,32,0.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Trebuchet MS','Segoe UI',sans-serif;
+    background:#1c1b1a;
+    touch-action:manipulation;
+    user-select:none;
+  }
+  #stage{
+    position:relative;
+    width:100vw;height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    background:#1c1b1a;
+  }
+  #gameWrap{
+    position:relative;
+    box-shadow:0 20px 60px var(--shadow);
+    border-radius:10px;
+    overflow:hidden;
+    max-height:100vh;
+    max-width:100vw;
+  }
+  canvas{display:block;background:linear-gradient(var(--sky-top),var(--sky-bottom));}
+
+  .overlay{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;
+    color:var(--ink);
+    padding:24px;
+    transition:opacity .25s ease;
+    z-index:8;
+  }
+  .hidden{display:none !important;}
+
+  .panel{
+    background:var(--paper);
+    border:3px solid var(--ink);
+    border-radius:16px;
+    padding:22px 28px;
+    box-shadow:0 10px 0 var(--ink), 0 14px 30px rgba(0,0,0,0.35);
+    max-width:88%;
+  }
+  .title{
+    font-size:clamp(26px,6vw,40px);
+    font-weight:800;
+    color:var(--accent-dark);
+    letter-spacing:1px;
+    margin:0 0 4px 0;
+    text-shadow:2px 2px 0 rgba(255,255,255,0.5);
+  }
+  .subtitle{
+    font-size:clamp(12px,3vw,15px);
+    color:var(--ink);
+    opacity:0.75;
+    margin:0 0 16px 0;
+  }
+  .btn{
+    display:inline-block;
+    font-family:inherit;
+    font-size:clamp(16px,4vw,20px);
+    font-weight:700;
+    color:#fff;
+    background:var(--accent);
+    border:none;
+    border-bottom:4px solid var(--accent-dark);
+    border-radius:10px;
+    padding:12px 28px;
+    cursor:pointer;
+    transition:transform .08s ease, filter .15s ease;
+    letter-spacing:0.5px;
+  }
+  .btn:active{transform:translateY(3px);border-bottom-width:1px;}
+  .btn:hover{filter:brightness(1.06);}
+
+  .scoreRow{
+    display:flex;gap:22px;justify-content:center;margin:14px 0 18px 0;
+  }
+  .scoreBox{
+    background:rgba(43,35,32,0.06);
+    border:2px solid var(--ink);
+    border-radius:10px;
+    padding:8px 16px;
+    min-width:84px;
+  }
+  .scoreBox .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.65;}
+  .scoreBox .value{font-size:24px;font-weight:800;color:var(--accent-dark);}
+
+  #hud{
+    position:absolute;top:14px;left:0;right:0;
+    display:flex;justify-content:center;
+    pointer-events:none;
+    z-index:5;
+  }
+  #hudScore{
+    font-size:clamp(34px,9vw,52px);
+    font-weight:800;
+    color:#fff;
+    -webkit-text-stroke:3px var(--ink);
+    text-shadow:0 4px 0 rgba(0,0,0,0.25);
+  }
+
+  #muteBtn{
+    position:absolute;top:12px;right:12px;
+    width:38px;height:38px;
+    border-radius:50%;
+    background:rgba(43,35,32,0.55);
+    border:2px solid rgba(255,255,255,0.6);
+    color:#fff;font-size:17px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    z-index:10;
+  }
+
+  #assetWarning{
+    position:absolute;top:58px;left:50%;transform:translateX(-50%);
+    background:rgba(43,35,32,0.85);
+    color:#FFD9B0;
+    font-size:12px;
+    padding:6px 12px;
+    border-radius:8px;
+    z-index:10;
+    max-width:80%;
+    text-align:center;
+    display:none;
+  }
+
+  .credit{
+    position:absolute;bottom:6px;right:10px;
+    font-size:10px;color:rgba(43,35,32,0.4);
+    z-index:5;
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="gameWrap">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud"><div id="hudScore">0</div></div>
+    <button id="muteBtn" title="Mute/unmute">🔊</button>
+    <div id="assetWarning"></div>
+
+    <div id="startScreen" class="overlay">
+      <div class="panel">
+        <h1 class="title">Flappy Banjhade</h1>
+        <p class="subtitle">Tap, click, or press Space to flap</p>
+        <button id="startBtn" class="btn">Start Game</button>
+        <div class="subtitle" style="margin-top:14px;">Best: <span id="bestPreview">0</span></div>
+      </div>
+    </div>
+
+    <div id="gameOverScreen" class="overlay hidden">
+      <div class="panel">
+        <h1 class="title" style="color:var(--accent-dark);" id="gameOverTitle">Ritik ki khel khatam</h1>
+        <div class="scoreRow">
+          <div class="scoreBox">
+            <div class="label">Score</div>
+            <div class="value" id="finalScore">0</div>
+          </div>
+          <div class="scoreBox">
+            <div class="label">Best</div>
+            <div class="value" id="bestScore">0</div>
+          </div>
+        </div>
+        <button id="restartBtn" class="btn">Play Again</button>
+      </div>
+    </div>
+
+    <div class="credit">Flappy Banjhade</div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   ASSET / AUDIO CONFIGURATION
+   -------------------------------------------------------------------------
+   Everything that points at an external file lives here. Drop the files
+   into the same GitHub repo root as this HTML file (or edit the paths
+   below to point wherever you keep them) and the game will pick them up
+   automatically — no other code needs to change.
+
+   NOTE ON THE PHOTO NOT APPEARING: GitHub Pages is case-sensitive and
+   path-sensitive. If the ball stayed blank/plain, the #1 cause is that
+   PLAYER_IMAGE_SRC below doesn't exactly match the uploaded filename
+   (including case), or the file isn't sitting next to this HTML file.
+   This build now also shows an on-screen warning banner if the image
+   fails to load, so it's obvious immediately instead of failing silently.
+   ========================================================================= */
+const CONFIG = {
+
+  // ---- Player sprite -----------------------------------------------------
+  PLAYER_IMAGE_SRC: "FB_IMG_1787569230652.jpg",   // uploaded photo, stored at repo root
+  PLAYER_NAME: "Ritik Banjhade",  // shown as a highlighted banner in the sky
+
+  // The original photo is 635 x 960 px (it also has a black letterbox
+  // bar across the very top ~135px, which this crop deliberately skips).
+  // HEAD_CROP is a rectangle (in the ORIGINAL image's pixel coordinates)
+  // around the head only — hair, face, ears, no shirt/torso. The ball
+  // then uses a "cover" fit (like CSS object-fit: cover) to fill the
+  // circle with this crop, centered, so the FULL FACE always shows
+  // completely inside the ball even if these numbers aren't pixel
+  // perfect. Nudge x/y/width/height here if the face needs to shift.
+  HEAD_CROP: {
+    x: 130,     // left edge of the crop, in source-image pixels
+    y: 135,     // top edge of the crop, in source-image pixels (skips the black bar)
+    width: 390, // crop width
+    height: 565 // crop height
+  },
+
+  // Final on-screen size of the player sprite (px). It's drawn as an
+  // OVAL (taller than wide) rather than a perfect circle, so the full
+  // head — forehead down to chin — fits on screen instead of getting
+  // clipped at top/bottom by a tight circle.
+  PLAYER_DISPLAY_WIDTH: 70,
+  PLAYER_DISPLAY_HEIGHT: 90,      // ~70-80px range, biased taller for a full head
+
+  // Shrinks the collision box relative to the drawn oval (0-1). A value
+  // below 1 gives the player a bit of grace so near-misses feel fair,
+  // while still colliding against the visible sprite, not empty canvas.
+  PLAYER_HITBOX_SCALE: 0.86,
+
+  // ---- Audio ---------------------------------------------------------
+  AUDIO: {
+    BACKGROUND: "background.mp3",  // loops continuously while playing
+    START:      "start.mp3",       // plays once when a run begins
+    END:        "end.mp3",         // plays once when a normal pole/ground ends the run
+    END_FIRE:   "end_fire.mp3",    // plays once instead of END, when a fire pillar kills the player
+    BACKGROUND_VOLUME: 0.5,
+    START_VOLUME: 0.8,
+    END_VOLUME: 0.8,
+    END_FIRE_VOLUME: 0.8
+  },
+
+  // ---- On-screen text -----------------------------------------------
+  TEXT: {
+    GAME_OVER: "Ritik ki khel khatam"
+  },
+
+  // ---- Physics / gameplay tuning -----------------------------------------
+  GRAVITY: 1500,          // px/s^2
+  FLAP_VELOCITY: -430,    // px/s, instantaneous upward velocity on flap
+  MAX_FALL_SPEED: 700,    // px/s terminal velocity
+  ROTATION_UP: -25,       // degrees, sprite tilt while rising
+  ROTATION_DOWN: 90,      // degrees, sprite tilt while diving
+
+  PIPE_WIDTH: 78,
+  PIPE_GAP_START: 190,       // vertical gap between top/bottom pipe at start
+  PIPE_GAP_MIN: 140,         // gap never shrinks past this (difficulty cap)
+  PIPE_GAP_SHRINK_PER_SCORE: 1.4, // gap shrinks slightly as score rises
+  PIPE_SPACING: 260,         // horizontal distance between pipe pairs
+  PIPE_SPEED_START: 190,     // px/s
+  PIPE_SPEED_MAX: 340,       // px/s difficulty cap
+  PIPE_SPEED_GAIN_PER_SCORE: 3, // speed increase per point scored
+
+  // Obstacles strictly alternate types each spawn: pole, fire, pole,
+  // fire ... (and so on back and forth). Both function identically as
+  // obstacles (fly through the gap) — only the look and the death sound
+  // differ when a fire pillar is what ends the run.
+  PIPE_TYPES: ['pole', 'fire'],
+
+  GROUND_HEIGHT: 90,
+  GROUND_SPEED_FACTOR: 1.0,  // ground scrolls at pipe speed * this factor
+
+  CANVAS_WIDTH: 400,
+  CANVAS_HEIGHT: 640,
+
+  // ---- Weather / ambience (badal / barsa / bijuli) -----------------------
+  // Purely visual — never affects physics or collisions. Cycles between
+  // calm skies and short bursts of clouds / rain / lightning so the sky
+  // stays lively without being distracting.
+  WEATHER: {
+    CLEAR_MIN: 7,    // seconds of calm sky before a new event can start
+    CLEAR_MAX: 14,
+    EVENT_MIN: 4,    // how long a weather event (cloudy/rain/storm) lasts
+    EVENT_MAX: 8,
+    RAINDROP_COUNT: 70,
+    LIGHTNING_CHANCE_PER_SEC: 0.35 // during a storm, odds of a flash each second
+  },
+
+  // ---- Name banner highlight ---------------------------------------------
+  NAME_BANNER: {
+    SHOW_MIN: 3.5,   // how long the name stays highlighted, seconds
+    SHOW_MAX: 5,
+    HIDE_MIN: 6,     // gap before it appears again, seconds
+    HIDE_MAX: 11
+  }
+};
+
+/* ========================================================================= */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const gameWrap = document.getElementById('gameWrap');
+const hudScoreEl = document.getElementById('hudScore');
+const startScreen = document.getElementById('startScreen');
+const gameOverScreen = document.getElementById('gameOverScreen');
+const startBtn = document.getElementById('startBtn');
+const restartBtn = document.getElementById('restartBtn');
+const finalScoreEl = document.getElementById('finalScore');
+const bestScoreEl = document.getElementById('bestScore');
+const bestPreviewEl = document.getElementById('bestPreview');
+const muteBtn = document.getElementById('muteBtn');
+const assetWarningEl = document.getElementById('assetWarning');
+const gameOverTitleEl = document.getElementById('gameOverTitle');
+gameOverTitleEl.textContent = CONFIG.TEXT.GAME_OVER;
+
+canvas.width = CONFIG.CANVAS_WIDTH;
+canvas.height = CONFIG.CANVAS_HEIGHT;
+
+/* ---------------------------------------------------------------------
+   Responsive scaling — keeps the fixed internal resolution but fits the
+   canvas element to whatever viewport it's shown in (desktop or mobile).
+--------------------------------------------------------------------- */
+function fitToScreen(){
+  const maxW = window.innerWidth;
+  const maxH = window.innerHeight;
+  const scale = Math.min(maxW / CONFIG.CANVAS_WIDTH, maxH / CONFIG.CANVAS_HEIGHT, 1.15);
+  const w = CONFIG.CANVAS_WIDTH * scale;
+  const h = CONFIG.CANVAS_HEIGHT * scale;
+  gameWrap.style.width = w + 'px';
+  gameWrap.style.height = h + 'px';
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+}
+window.addEventListener('resize', fitToScreen);
+fitToScreen();
+
+/* ---------------------------------------------------------------------
+   Audio setup — all playback funnels through this small wrapper so mute/
+   volume/loop behavior stays consistent and centralized.
+--------------------------------------------------------------------- */
+const sounds = {
+  background: new Audio(CONFIG.AUDIO.BACKGROUND),
+  start: new Audio(CONFIG.AUDIO.START),
+  end: new Audio(CONFIG.AUDIO.END),
+  endFire: new Audio(CONFIG.AUDIO.END_FIRE)
+};
+sounds.background.loop = true;
+sounds.background.volume = CONFIG.AUDIO.BACKGROUND_VOLUME;
+sounds.start.volume = CONFIG.AUDIO.START_VOLUME;
+sounds.end.volume = CONFIG.AUDIO.END_VOLUME;
+sounds.endFire.volume = CONFIG.AUDIO.END_FIRE_VOLUME;
+// Missing/unavailable audio files should never break gameplay.
+Object.values(sounds).forEach(a => a.addEventListener('error', () => {}));
+
+let muted = false;
+
+// Plays a one-off sound effect (start / end / end-fire) making sure it
+// never overlaps the looping background track: background music is
+// paused first, the effect plays alone, and — only if requested and the
+// game is still in progress — background music resumes. It waits out a
+// fixed silence gap (BG_RESUME_DELAY) before resuming, regardless of how
+// short the effect clip is, so there's always a clean gap and the two
+// tracks are never heard on top of each other.
+const BG_RESUME_DELAY = 4000; // ms of silence after an effect before background resumes
+let bgResumeTimer = null;
+
+function playSoundExclusive(sound, resumeBackgroundAfter){
+  stopBackgroundMusic();
+  if (bgResumeTimer){ clearTimeout(bgResumeTimer); bgResumeTimer = null; }
+
+  const scheduleResume = () => {
+    if (!resumeBackgroundAfter) return;
+    bgResumeTimer = setTimeout(() => {
+      bgResumeTimer = null;
+      if (state === STATE.PLAYING) startBackgroundMusic();
+    }, BG_RESUME_DELAY);
+  };
+
+  if (muted){
+    scheduleResume();
+    return;
+  }
+  const cleanup = () => {
+    sound.removeEventListener('ended', cleanup);
+    sound.removeEventListener('error', cleanup);
+  };
+  try {
+    sound.currentTime = 0;
+    sound.addEventListener('ended', cleanup);
+    sound.addEventListener('error', cleanup);
+    const playPromise = sound.play();
+    if (playPromise && playPromise.catch) playPromise.catch(cleanup);
+  } catch(e){
+    cleanup();
+  }
+  scheduleResume();
+}
+function startBackgroundMusic(){
+  if (muted) return;
+  try { sounds.background.currentTime = 0; sounds.background.play().catch(()=>{}); } catch(e){}
+}
+function stopBackgroundMusic(){
+  try { sounds.background.pause(); sounds.background.currentTime = 0; } catch(e){}
+}
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  if (bgResumeTimer){ clearTimeout(bgResumeTimer); bgResumeTimer = null; }
+  if (muted) stopBackgroundMusic();
+  else if (state === STATE.PLAYING) startBackgroundMusic();
+});
+
+/* ---------------------------------------------------------------------
+   Player sprite — crop the head out of the uploaded photo, then draw it
+   as a full circular "ball" using a cover-fit (like CSS object-fit:
+   cover) so the complete face always fills the ball, centered, with no
+   stretching. Collision uses this same oval sprite's bounds.
+--------------------------------------------------------------------- */
+const sourceImage = new Image();
+let headSprite = null;      // offscreen canvas holding the cropped head, pre-cut to an oval
+let headReady = false;
+
+function buildHeadSprite(){
+  // Render at higher res, downscale for crispness. Taller than wide
+  // (an oval, not a circle) so the full head — top of hair to chin —
+  // fits without the sides/bottom getting clipped off.
+  const renderScale = 3;
+  const w = CONFIG.PLAYER_DISPLAY_WIDTH * renderScale;
+  const h = CONFIG.PLAYER_DISPLAY_HEIGHT * renderScale;
+  const off = document.createElement('canvas');
+  off.width = w;
+  off.height = h;
+  const octx = off.getContext('2d');
+  const rx = w / 2, ry = h / 2;
+
+  const c = CONFIG.HEAD_CROP;
+  // Clamp crop rectangle to the actual image bounds so a slightly-off
+  // config never throws or silently draws nothing.
+  const sx = Math.max(0, Math.min(c.x, sourceImage.naturalWidth - 1));
+  const sy = Math.max(0, Math.min(c.y, sourceImage.naturalHeight - 1));
+  const sw = Math.max(1, Math.min(c.width, sourceImage.naturalWidth - sx));
+  const sh = Math.max(1, Math.min(c.height, sourceImage.naturalHeight - sy));
+
+  // Cover-fit math: scale so the crop fills the oval completely,
+  // cropping any excess on the longer axis rather than squashing it —
+  // this is what guarantees the whole face is visible, full, inside
+  // the sprite regardless of the crop's exact aspect ratio.
+  const scale = Math.max(w / sw, h / sh);
+  const drawW = sw * scale;
+  const drawH = sh * scale;
+  const dx = (w - drawW) / 2;
+  const dy = (h - drawH) / 2;
+
+  octx.save();
+  octx.beginPath();
+  octx.ellipse(rx, ry, rx, ry, 0, 0, Math.PI * 2);
+  octx.closePath();
+  octx.clip();
+  octx.drawImage(sourceImage, sx, sy, sw, sh, dx, dy, drawW, drawH);
+  octx.restore();
+
+  // subtle ring outline baked into the sprite
+  octx.beginPath();
+  octx.ellipse(rx, ry, rx - 2, ry - 2, 0, 0, Math.PI * 2);
+  octx.lineWidth = 5;
+  octx.strokeStyle = 'rgba(43,35,32,0.55)';
+  octx.stroke();
+
+  headSprite = off;
+  headReady = true;
+  assetWarningEl.style.display = 'none';
+}
+
+sourceImage.onload = () => {
+  try {
+    buildHeadSprite();
+  } catch (e){
+    headReady = false;
+    showAssetWarning('Could not process 4860.jpg — check HEAD_CROP values.');
+  }
+};
+sourceImage.onerror = () => {
+  // Fallback: game stays fully playable with a simple drawn avatar if the
+  // photo isn't present yet, or the path/case doesn't match exactly.
+  headReady = false;
+  showAssetWarning('Photo not found at "' + CONFIG.PLAYER_IMAGE_SRC + '" — check the filename, case, and that it sits next to index.html.');
+};
+function showAssetWarning(msg){
+  assetWarningEl.textContent = msg;
+  assetWarningEl.style.display = 'block';
+}
+sourceImage.src = CONFIG.PLAYER_IMAGE_SRC;
+
+/* ---------------------------------------------------------------------
+   Game state
+--------------------------------------------------------------------- */
+const STATE = { START: 'start', PLAYING: 'playing', GAMEOVER: 'gameover' };
+let state = STATE.START;
+
+let best = 0;
+try { best = parseInt(localStorage.getItem('flappyBanjhadeBest') || '0', 10) || 0; } catch(e){ best = 0; }
+bestPreviewEl.textContent = best;
+
+let player, pipes, score, groundOffset, elapsed, lastTime, bgOffset;
+
+function resetGame(){
+  player = {
+    x: CONFIG.CANVAS_WIDTH * 0.3,
+    y: CONFIG.CANVAS_HEIGHT / 2,
+    vy: 0,
+    rotation: 0
+  };
+  pipes = [];
+  score = 0;
+  groundOffset = 0;
+  bgOffset = 0;
+  elapsed = 0;
+  nextPipeTypeIndex = 0; // always start a fresh run on "pole" first
+  spawnPipe(CONFIG.CANVAS_WIDTH + 60);
+  hudScoreEl.textContent = '0';
+}
+
+function currentPipeGap(){
+  const shrink = score * CONFIG.PIPE_GAP_SHRINK_PER_SCORE;
+  return Math.max(CONFIG.PIPE_GAP_MIN, CONFIG.PIPE_GAP_START - shrink);
+}
+function currentPipeSpeed(){
+  const gain = score * CONFIG.PIPE_SPEED_GAIN_PER_SCORE;
+  return Math.min(CONFIG.PIPE_SPEED_MAX, CONFIG.PIPE_SPEED_START + gain);
+}
+
+let nextPipeTypeIndex = 0; // walks back and forth through PIPE_TYPES: pole, fire, pole, fire...
+
+function spawnPipe(atX){
+  const gap = currentPipeGap();
+  const margin = 60;
+  const playH = CONFIG.CANVAS_HEIGHT - CONFIG.GROUND_HEIGHT;
+  const gapCenter = margin + Math.random() * (playH - margin * 2 - gap) + gap / 2;
+  const type = CONFIG.PIPE_TYPES[nextPipeTypeIndex % CONFIG.PIPE_TYPES.length];
+  nextPipeTypeIndex++;
+  pipes.push({
+    x: atX,
+    gapCenter: gapCenter,
+    gap: gap,
+    scored: false,
+    type: type
+  });
+}
+
+/* ---------------------------------------------------------------------
+   Input
+--------------------------------------------------------------------- */
+function flap(){
+  if (state === STATE.PLAYING){
+    player.vy = CONFIG.FLAP_VELOCITY;
+  }
+}
+
+function handlePrimaryInput(e){
+  if (e) e.preventDefault();
+  if (state === STATE.START){
+    beginGame();
+  } else if (state === STATE.PLAYING){
+    flap();
+  }
+}
+
+canvas.addEventListener('pointerdown', handlePrimaryInput);
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' || e.code === 'ArrowUp'){
+    e.preventDefault();
+    handlePrimaryInput(null);
+  }
+});
+startBtn.addEventListener('click', beginGame);
+restartBtn.addEventListener('click', beginGame);
+
+/* ---------------------------------------------------------------------
+   State transitions
+--------------------------------------------------------------------- */
+function beginGame(){
+  resetGame();
+  state = STATE.PLAYING;
+  startScreen.classList.add('hidden');
+  gameOverScreen.classList.add('hidden');
+  // start.mp3 plays alone first; background music only kicks in once it
+  // finishes, so the two are never heard on top of each other.
+  playSoundExclusive(sounds.start, true);
+  lastTime = performance.now();
+  if (!rafId) rafId = requestAnimationFrame(loop);
+}
+
+function endGame(cause){
+  state = STATE.GAMEOVER;
+  // A fire pillar plays its own death sound; everything else (a pole
+  // or the ground) plays the normal end sound. Background music is
+  // stopped and stays stopped (resumeBackgroundAfter: false) until the
+  // next run begins.
+  playSoundExclusive(cause === 'fire' ? sounds.endFire : sounds.end, false);
+  if (score > best){
+    best = score;
+    try { localStorage.setItem('flappyBanjhadeBest', String(best)); } catch(e){}
+  }
+  finalScoreEl.textContent = score;
+  bestScoreEl.textContent = best;
+  bestPreviewEl.textContent = best;
+  gameOverScreen.classList.remove('hidden');
+}
+
+/* ---------------------------------------------------------------------
+   Update
+--------------------------------------------------------------------- */
+function update(dt){
+  elapsed += dt;
+  const speed = currentPipeSpeed();
+
+  // player physics
+  player.vy += CONFIG.GRAVITY * dt;
+  if (player.vy > CONFIG.MAX_FALL_SPEED) player.vy = CONFIG.MAX_FALL_SPEED;
+  player.y += player.vy * dt;
+
+  const targetRot = player.vy < 0 ? CONFIG.ROTATION_UP : Math.min(CONFIG.ROTATION_DOWN, player.vy * 0.12);
+  player.rotation += (targetRot - player.rotation) * Math.min(1, dt * 10);
+
+  // ground scroll
+  groundOffset = (groundOffset + speed * dt) % 40;
+  bgOffset = (bgOffset + speed * 0.25 * dt) % CONFIG.CANVAS_WIDTH;
+
+  // pipes
+  for (const p of pipes){
+    p.x -= speed * dt;
+  }
+  while (pipes.length && pipes[0].x < -CONFIG.PIPE_WIDTH){
+    pipes.shift();
+  }
+  const lastPipe = pipes[pipes.length - 1];
+  if (!lastPipe || (CONFIG.CANVAS_WIDTH - lastPipe.x) >= CONFIG.PIPE_SPACING){
+    spawnPipe(CONFIG.CANVAS_WIDTH + 20);
+  }
+
+  // scoring — pass the pipe's trailing edge
+  const playerCenterX = player.x;
+  for (const p of pipes){
+    if (!p.scored && (p.x + CONFIG.PIPE_WIDTH) < playerCenterX){
+      p.scored = true;
+      score++;
+      hudScoreEl.textContent = score;
+    }
+  }
+
+  checkCollisions();
+}
+
+function playerHitbox(){
+  const hw = (CONFIG.PLAYER_DISPLAY_WIDTH * CONFIG.PLAYER_HITBOX_SCALE) / 2;
+  const hh = (CONFIG.PLAYER_DISPLAY_HEIGHT * CONFIG.PLAYER_HITBOX_SCALE) / 2;
+  return {
+    left: player.x - hw,
+    right: player.x + hw,
+    top: player.y - hh,
+    bottom: player.y + hh,
+    halfHeight: hh
+  };
+}
+
+function checkCollisions(){
+  const box = playerHitbox();
+  const groundY = CONFIG.CANVAS_HEIGHT - CONFIG.GROUND_HEIGHT;
+
+  // ground
+  if (box.bottom >= groundY){
+    player.y = groundY - box.halfHeight;
+    endGame('ground');
+    return;
+  }
+  // ceiling — treat as a forbidden boundary too
+  if (box.top <= 0){
+    player.y = box.halfHeight;
+    player.vy = 0;
+  }
+
+  // pipes / fire pillars
+  for (const p of pipes){
+    const withinX = box.right > p.x && box.left < p.x + CONFIG.PIPE_WIDTH;
+    if (!withinX) continue;
+    const gapTop = p.gapCenter - p.gap / 2;
+    const gapBottom = p.gapCenter + p.gap / 2;
+    const hitsTopPipe = box.top < gapTop;
+    const hitsBottomPipe = box.bottom > gapBottom;
+    if (hitsTopPipe || hitsBottomPipe){
+      endGame(p.type);
+      return;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Weather system (badal / barsa / bijuli) — purely visual ambience that
+   cycles between calm sky and short cloudy / rainy / stormy bursts.
+   Runs continuously (start screen, playing, game over) using real time,
+   independent of the game's dt so it keeps drifting even on menus.
+--------------------------------------------------------------------- */
+const WeatherType = { CLEAR: 'clear', CLOUDY: 'cloudy', RAIN: 'rain', STORM: 'storm' };
+const weather = {
+  type: WeatherType.CLEAR,
+  timer: rand(CONFIG.WEATHER.CLEAR_MIN, CONFIG.WEATHER.CLEAR_MAX),
+  flashAlpha: 0,
+  raindrops: [],
+  clouds: []
+};
+
+function rand(min, max){ return min + Math.random() * (max - min); }
+
+// Ambient clouds drift across the sky at all times; weather events add
+// extra darker clouds temporarily on top of these.
+for (let i = 0; i < 4; i++){
+  weather.clouds.push(makeCloud(true));
+}
+function makeCloud(randomX){
+  return {
+    x: randomX ? Math.random() * CONFIG.CANVAS_WIDTH : CONFIG.CANVAS_WIDTH + 40,
+    y: rand(20, 160),
+    scale: rand(0.6, 1.3),
+    speed: rand(8, 20),
+    dark: false
+  };
+}
+for (let i = 0; i < CONFIG.WEATHER.RAINDROP_COUNT; i++){
+  weather.raindrops.push({
+    x: Math.random() * CONFIG.CANVAS_WIDTH,
+    y: Math.random() * CONFIG.CANVAS_HEIGHT,
+    len: rand(10, 20),
+    speed: rand(420, 620)
+  });
+}
+
+function updateWeather(dtReal){
+  weather.timer -= dtReal;
+
+  if (weather.timer <= 0){
+    if (weather.type === WeatherType.CLEAR){
+      const roll = Math.random();
+      weather.type = roll < 0.4 ? WeatherType.CLOUDY : (roll < 0.75 ? WeatherType.RAIN : WeatherType.STORM);
+      weather.timer = rand(CONFIG.WEATHER.EVENT_MIN, CONFIG.WEATHER.EVENT_MAX);
+      if (weather.type !== WeatherType.CLOUDY){
+        for (let i = 0; i < 3; i++) weather.clouds.push(makeCloud(false, true));
+      }
+      weather.clouds.forEach(c => { if (weather.type !== WeatherType.CLEAR) c.dark = true; });
+    } else {
+      weather.type = WeatherType.CLEAR;
+      weather.timer = rand(CONFIG.WEATHER.CLEAR_MIN, CONFIG.WEATHER.CLEAR_MAX);
+      weather.clouds.forEach(c => c.dark = false);
+    }
+  }
+
+  // ambient + event clouds drift
+  for (const c of weather.clouds){
+    c.x -= c.speed * dtReal;
+  }
+  weather.clouds = weather.clouds.filter(c => c.x > -80);
+  while (weather.clouds.length < 4){
+    weather.clouds.push(makeCloud(true));
+  }
+
+  // rain
+  if (weather.type === WeatherType.RAIN || weather.type === WeatherType.STORM){
+    for (const d of weather.raindrops){
+      d.y += d.speed * dtReal;
+      d.x -= 40 * dtReal;
+      if (d.y > CONFIG.CANVAS_HEIGHT){
+        d.y = -20;
+        d.x = Math.random() * CONFIG.CANVAS_WIDTH;
+      }
+    }
+  }
+
+  // lightning flashes only during storms
+  if (weather.type === WeatherType.STORM){
+    if (Math.random() < CONFIG.WEATHER.LIGHTNING_CHANCE_PER_SEC * dtReal){
+      weather.flashAlpha = 0.85;
+      weather.boltSeed = Math.random();
+    }
+  }
+  if (weather.flashAlpha > 0){
+    weather.flashAlpha = Math.max(0, weather.flashAlpha - dtReal * 2.2);
+  }
+}
+
+function drawClouds(){
+  for (const c of weather.clouds){
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.scale(c.scale, c.scale);
+    ctx.fillStyle = c.dark ? 'rgba(90,98,105,0.75)' : 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 26, 16, 0, 0, Math.PI * 2);
+    ctx.ellipse(20, -6, 20, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(-20, -4, 18, 13, 0, 0, Math.PI * 2);
+    ctx.ellipse(4, 8, 28, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawRain(){
+  if (weather.type !== WeatherType.RAIN && weather.type !== WeatherType.STORM) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(180,210,230,0.55)';
+  ctx.lineWidth = 2;
+  for (const d of weather.raindrops){
+    ctx.beginPath();
+    ctx.moveTo(d.x, d.y);
+    ctx.lineTo(d.x - 6, d.y + d.len);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawLightning(){
+  if (weather.flashAlpha <= 0) return;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,' + weather.flashAlpha.toFixed(2) + ')';
+  ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+  if (weather.flashAlpha > 0.4){
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 3;
+    const seed = weather.boltSeed || 0.5;
+    const startX = 60 + seed * (CONFIG.CANVAS_WIDTH - 120);
+    ctx.beginPath();
+    ctx.moveTo(startX, 0);
+    let x = startX, y = 0;
+    for (let i = 0; i < 6; i++){
+      x += (Math.random() - 0.5) * 40;
+      y += 30;
+      ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ---------------------------------------------------------------------
+   Name banner — periodically highlights CONFIG.PLAYER_NAME in the sky
+   for a few seconds using a different visual style each time, then
+   hides again.
+--------------------------------------------------------------------- */
+const nameBanner = {
+  visible: false,
+  timer: rand(CONFIG.NAME_BANNER.HIDE_MIN, CONFIG.NAME_BANNER.HIDE_MAX),
+  styleIndex: 0,
+  age: 0
+};
+const NAME_STYLES = ['glow', 'rainbow', 'pulse', 'shake'];
+
+function updateNameBanner(dtReal){
+  nameBanner.timer -= dtReal;
+  if (nameBanner.visible) nameBanner.age += dtReal;
+
+  if (nameBanner.timer <= 0){
+    if (nameBanner.visible){
+      nameBanner.visible = false;
+      nameBanner.timer = rand(CONFIG.NAME_BANNER.HIDE_MIN, CONFIG.NAME_BANNER.HIDE_MAX);
+    } else {
+      nameBanner.visible = true;
+      nameBanner.age = 0;
+      nameBanner.styleIndex = Math.floor(Math.random() * NAME_STYLES.length);
+      nameBanner.timer = rand(CONFIG.NAME_BANNER.SHOW_MIN, CONFIG.NAME_BANNER.SHOW_MAX);
+    }
+  }
+}
+
+function drawNameBanner(){
+  if (!nameBanner.visible) return;
+  const style = NAME_STYLES[nameBanner.styleIndex];
+  const t = nameBanner.age;
+  const cx = CONFIG.CANVAS_WIDTH / 2;
+  const cy = 92;
+
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = '800 22px "Trebuchet MS", sans-serif';
+
+  let fillStyle = '#ffffff';
+  let scale = 1;
+  let rotation = 0;
+  let glowColor = 'rgba(224,99,43,0.9)';
+  let glowBlur = 18;
+
+  if (style === 'glow'){
+    glowBlur = 14 + Math.sin(t * 6) * 8;
+    fillStyle = '#FFF7E8';
+    glowColor = 'rgba(255,196,0,0.9)';
+  } else if (style === 'rainbow'){
+    const hue = (t * 140) % 360;
+    fillStyle = 'hsl(' + hue + ', 90%, 65%)';
+    glowColor = 'hsl(' + hue + ', 90%, 55%)';
+    glowBlur = 16;
+  } else if (style === 'pulse'){
+    scale = 1 + Math.sin(t * 8) * 0.12;
+    fillStyle = '#FFFFFF';
+    glowColor = 'rgba(255,255,255,0.9)';
+  } else if (style === 'shake'){
+    rotation = Math.sin(t * 30) * 0.035;
+    fillStyle = '#FFE8CF';
+    glowColor = 'rgba(255,120,40,0.9)';
+  }
+
+  // gentle fade in/out at the edges of its visible window
+  const fadeIn = Math.min(1, t / 0.4);
+  const remaining = nameBanner.timer;
+  const fadeOut = Math.min(1, remaining / 0.4);
+  ctx.globalAlpha = Math.min(fadeIn, fadeOut);
+
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  ctx.scale(scale, scale);
+
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = glowBlur;
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(43,35,32,0.7)';
+  ctx.strokeText(CONFIG.PLAYER_NAME, 0, 0);
+  ctx.fillStyle = fillStyle;
+  ctx.fillText(CONFIG.PLAYER_NAME, 0, 0);
+
+  ctx.restore();
+}
+
+/* ---------------------------------------------------------------------
+   Draw
+--------------------------------------------------------------------- */
+function drawBackground(){
+  ctx.save();
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--peak-far').trim();
+  drawMountainRange(CONFIG.CANVAS_HEIGHT - CONFIG.GROUND_HEIGHT - 30, 70, 0.5, bgOffset * 0.4);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--peak-near').trim();
+  drawMountainRange(CONFIG.CANVAS_HEIGHT - CONFIG.GROUND_HEIGHT - 5, 100, 0.7, bgOffset * 0.8);
+  ctx.restore();
+}
+
+function drawMountainRange(baseY, amp, freqScale, offset){
+  const w = CONFIG.CANVAS_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(-40, baseY);
+  const step = 40;
+  for (let x = -40; x <= w + 40; x += step){
+    const px = x + offset;
+    const peak = baseY - amp * (0.5 + 0.5 * Math.sin(px * 0.02 * freqScale) * Math.sin(px * 0.007));
+    ctx.lineTo(x, peak);
+  }
+  ctx.lineTo(w + 40, CONFIG.CANVAS_HEIGHT);
+  ctx.lineTo(-40, CONFIG.CANVAS_HEIGHT);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawPipes(){
+  const groundY = CONFIG.CANVAS_HEIGHT - CONFIG.GROUND_HEIGHT;
+  for (const p of pipes){
+    const gapTop = p.gapCenter - p.gap / 2;
+    const gapBottom = p.gapCenter + p.gap / 2;
+    if (p.type === 'fire'){
+      drawFirePillar(p.x, 0, CONFIG.PIPE_WIDTH, gapTop, true);
+      drawFirePillar(p.x, gapBottom, CONFIG.PIPE_WIDTH, groundY - gapBottom, false);
+    } else {
+      drawBambooStalk(p.x, 0, CONFIG.PIPE_WIDTH, gapTop, true);
+      drawBambooStalk(p.x, gapBottom, CONFIG.PIPE_WIDTH, groundY - gapBottom, false);
+    }
+  }
+}
+
+function drawFirePillar(x, y, w, h, isTop){
+  if (h <= 0) return;
+  ctx.save();
+
+  // core pillar — hot core fading to a darker charred edge
+  const grad = ctx.createLinearGradient(x, 0, x + w, 0);
+  grad.addColorStop(0, '#8C2A0E');
+  grad.addColorStop(0.5, '#E0632B');
+  grad.addColorStop(1, '#8C2A0E');
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = '#5A1A08';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  roundRectPath(ctx, x, y, w, h, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // flickering flame licks along the whole pillar length
+  const flicker = Math.sin(elapsed * 9 + x * 0.05) * 4;
+  const flameCount = Math.max(2, Math.round(h / 26));
+  for (let i = 0; i < flameCount; i++){
+    const t = i / flameCount;
+    const fy = isTop ? y + h - (i * 26) - 10 : y + (i * 26) + 10;
+    if (fy < y || fy > y + h) continue;
+    const wob = Math.sin(elapsed * 10 + i * 1.7) * 3 + flicker;
+    drawFlameLick(x + w / 2 + wob, fy, 12 + (i % 2) * 3);
+  }
+
+  // hot lip right at the gap edge, matching the bamboo pipe's lip
+  const lipH = 22;
+  const lipY = isTop ? y + h - lipH : y;
+  const lipGrad = ctx.createLinearGradient(x, 0, x + w, 0);
+  lipGrad.addColorStop(0, '#FFB238');
+  lipGrad.addColorStop(0.5, '#FF7A1A');
+  lipGrad.addColorStop(1, '#FFB238');
+  ctx.fillStyle = lipGrad;
+  ctx.beginPath();
+  roundRectPath(ctx, x - 5, lipY, w + 10, lipH, 6);
+  ctx.fill();
+  ctx.strokeStyle = '#5A1A08';
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawFlameLick(cx, cy, size){
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = 'rgba(255,196,0,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.quadraticCurveTo(size * 0.7, -size * 0.2, size * 0.35, size * 0.5);
+  ctx.quadraticCurveTo(0, size * 0.8, 0, size);
+  ctx.quadraticCurveTo(0, size * 0.8, -size * 0.35, size * 0.5);
+  ctx.quadraticCurveTo(-size * 0.7, -size * 0.2, 0, -size);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.arc(0, size * 0.1, size * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBambooStalk(x, y, w, h, isTop){
+  if (h <= 0) return;
+  ctx.save();
+  const grad = ctx.createLinearGradient(x, 0, x + w, 0);
+  grad.addColorStop(0, '#5CAE5E');
+  grad.addColorStop(0.5, getComputedStyle(document.documentElement).getPropertyValue('--bamboo').trim());
+  grad.addColorStop(1, getComputedStyle(document.documentElement).getPropertyValue('--bamboo-dark').trim());
+  ctx.fillStyle = grad;
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bamboo-ring').trim();
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  roundRectPath(ctx, x, y, w, h, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bamboo-ring').trim();
+  ctx.lineWidth = 3;
+  const ringSpacing = 34;
+  ctx.globalAlpha = 0.6;
+  const start = isTop ? h % ringSpacing : 0;
+  for (let ry = y + start; ry < y + h; ry += ringSpacing){
+    ctx.beginPath();
+    ctx.moveTo(x + 4, ry);
+    ctx.lineTo(x + w - 4, ry);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  const lipH = 22;
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bamboo-dark').trim();
+  const lipY = isTop ? y + h - lipH : y;
+  ctx.beginPath();
+  roundRectPath(ctx, x - 5, lipY, w + 10, lipH, 6);
+  ctx.fill();
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--bamboo-ring').trim();
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function roundRectPath(c, x, y, w, h, r){
+  c.moveTo(x + r, y);
+  c.arcTo(x + w, y, x + w, y + h, r);
+  c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r);
+  c.arcTo(x, y, x + w, y, r);
+}
+
+function drawGround(){
+  const groundY = CONFIG.CANVAS_HEIGHT - CONFIG.GROUND_HEIGHT;
+  const grad = ctx.createLinearGradient(0, groundY, 0, CONFIG.CANVAS_HEIGHT);
+  grad.addColorStop(0, getComputedStyle(document.documentElement).getPropertyValue('--ground-top').trim());
+  grad.addColorStop(1, getComputedStyle(document.documentElement).getPropertyValue('--ground-bottom').trim());
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, groundY, CONFIG.CANVAS_WIDTH, CONFIG.GROUND_HEIGHT);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.08)';
+  const w = 40;
+  for (let x = -groundOffset; x < CONFIG.CANVAS_WIDTH; x += w){
+    ctx.fillRect(x, groundY, w / 2, CONFIG.GROUND_HEIGHT);
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillRect(0, groundY, CONFIG.CANVAS_WIDTH, 4);
+}
+
+function drawPlayer(){
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.rotation * Math.PI / 180);
+
+  const w = CONFIG.PLAYER_DISPLAY_WIDTH;
+  const h = CONFIG.PLAYER_DISPLAY_HEIGHT;
+  if (headReady && headSprite){
+    ctx.drawImage(headSprite, -w / 2, -h / 2, w, h);
+  } else {
+    // Fallback oval so the game is fully playable without the photo present.
+    ctx.fillStyle = '#F2C48D';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a5a2b';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function render(){
+  ctx.clearRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+  drawBackground();
+  drawClouds();
+  drawNameBanner();
+  drawPipes();
+  drawRain();
+  drawGround();
+  drawPlayer();
+  drawLightning();
+}
+
+/* ---------------------------------------------------------------------
+   Main loop
+--------------------------------------------------------------------- */
+let rafId = null;
+function loop(now){
+  const dt = Math.min(0.033, (now - lastTime) / 1000);
+  lastTime = now;
+
+  updateWeather(dt);
+  updateNameBanner(dt);
+
+  if (state === STATE.PLAYING){
+    update(dt);
+  }
+  render();
+
+  rafId = requestAnimationFrame(loop);
+}
+
+// Idle preview render before the game starts
+resetGame();
+lastTime = performance.now();
+render();
+rafId = requestAnimationFrame(loop);
+</script>
+</body>
+</html>
